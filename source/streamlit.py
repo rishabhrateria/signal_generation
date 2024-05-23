@@ -1,4 +1,6 @@
+import csv
 import time
+from pydantic import ValidationError
 import streamlit as st
 from itertools import product
 from dotenv import load_dotenv
@@ -79,6 +81,16 @@ def get_strategy_id_combinations(portfolio_ids, strategy_ids_per_portfolio):
     ]
 
 
+def validate(input_data):
+    validated_input = None
+    try:
+        validated_input = validate_input(input_data)
+    except ValidationError as e:
+        error_messages = [f"{err['loc'][0]}: {err['msg']}" for err in e.errors()]
+        st.error("\n,".join(error_messages))
+    return validated_input
+
+
 def main():
     st.title("Trading System Input")
 
@@ -155,47 +167,73 @@ def main():
         end_date = st.text_input(
             "End Date (format: dd/mm/yyyy hh:mm:ss)", value="3/04/2019 16:00:00"
         )
-        entry_fractal_file_number = st.text_input(
-            "Entry Fractal File Number", value="1"
-        )
-        exit_fractal_file_number = st.text_input("Exit Fractal File Number", value="2")
-        fractal_exit_count = st.text_input(
-            "Fractal Exit Count (e.g., 6, ALL)", value="ALL"
-        )
-        bb_file_number = st.text_input("BB File Number", value="1")
-        trail_bb_file_number = st.text_input("Trail BB File Number", value="1")
-        bb_band_sd = st.selectbox(
-            "BB Band Standard Deviations", options=[2.0, 2.25, 2.5, 2.75, 3.0], index=0
-        )
-        trail_bb_band_sd = st.selectbox(
-            "Trail BB Band Standard Deviations",
-            options=[2.0, 2.25, 2.5, 2.75, 3.0],
-            index=0,
-        )
-        bb_band_column = st.selectbox(
-            "BB Band Column", options=["mean", "upper", "lower"], index=0
-        )
-        trail_bb_band_column = st.selectbox(
-            "Trail BB Band Column", options=["mean", "upper", "lower"], index=0
-        )
         trade_start_time = st.text_input(
             "Trade Start Time (format: hh:mm:ss)", value="09:15:00"
         )
         trade_end_time = st.text_input(
             "Trade End Time (format: hh:mm:ss)", value="15:20:00"
         )
-        check_fractal = st.checkbox("Check Fractal", value=True)
-        check_bb_band = st.checkbox("Check BB Band", value=False)
-        check_trail_bb_band = st.checkbox("Check Trail BB Band", value=False)
-        trail_bb_band_direction = st.selectbox(
-            "Trail BB Band Direction", options=["higher", "lower"], index=0
-        )
+
         trade_type = st.selectbox(
             "Trade Type", options=["positional", "intraday"], index=0
         )
         allowed_direction = st.selectbox(
             "Allowed Direction", options=["all", "long", "short"], index=0
         )
+
+        # Entry Fractal Inputs (conditionally displayed)
+        check_entry_fractal = st.checkbox("Check Entry Fractal", value=False)
+        if check_entry_fractal:
+            entry_fractal_file_number = st.text_input(
+                "Entry Fractal File Number", value="1"
+            )
+
+        # Exit Fractal Inputs (conditionally displayed)
+        check_exit_fractal = st.checkbox("Check Exit Fractal", value=False)
+        if check_exit_fractal:
+            exit_fractal_file_number = st.text_input(
+                "Exit Fractal File Number", value="2"
+            )
+            fractal_exit_count = st.text_input(
+                "Fractal Exit Count (e.g., 6, ALL)", value="ALL"
+            )
+
+        # Bollinger Band Inputs (conditionally displayed)
+        check_bb_band = st.checkbox("Check BB Band", value=False)
+        if check_bb_band:
+            bb_file_number = st.text_input("BB File Number", value="1")
+            bb_band_sd = st.selectbox(
+                "BB Band Standard Deviations",
+                options=[2.0, 2.25, 2.5, 2.75, 3.0],
+                index=0,
+            )
+            bb_band_column = st.selectbox(
+                "BB Band Column", options=["mean", "upper", "lower"], index=0
+            )
+
+        # Trail BB Band Inputs (conditionally displayed)
+        check_trail_bb_band = st.checkbox("Check Trail BB Band", value=False)
+        if check_trail_bb_band:
+            trail_bb_file_number = st.text_input("Trail BB File Number", value="1")
+            trail_bb_band_sd = st.selectbox(
+                "Trail BB Band Standard Deviations",
+                options=[2.0, 2.25, 2.5, 2.75, 3.0],
+                index=0,
+            )
+            trail_bb_band_column = st.selectbox(
+                "Trail BB Band Column", options=["mean", "upper", "lower"], index=0
+            )
+            trail_bb_band_direction = st.selectbox(
+                "Trail BB Band Direction", options=["higher", "lower"], index=0
+            )
+        check_entry_based = st.checkbox("Check Entry Based", value=False)
+        if check_entry_based:
+            number_of_entries = st.number_input(
+                "Number of Entries", min_value=0, value=0, step=1
+            )
+            steps_to_skip = st.number_input(
+                "Steps to Skip", min_value=0, value=0, step=1
+            )
 
         if st.button("Submit"):
 
@@ -209,42 +247,72 @@ def main():
                 "short_exit_signals": short_exit_signals,
                 "start_date": start_date,
                 "end_date": end_date,
-                "entry_fractal_file_number": entry_fractal_file_number,
-                "exit_fractal_file_number": exit_fractal_file_number,
-                "fractal_exit_count": fractal_exit_count,
-                "bb_file_number": bb_file_number,
-                "trail_bb_file_number": trail_bb_file_number,
-                "bb_band_sd": bb_band_sd,
-                "trail_bb_band_sd": trail_bb_band_sd,
-                "bb_band_column": bb_band_column,
-                "trail_bb_band_column": trail_bb_band_column,
                 "trade_start_time": trade_start_time,
                 "trade_end_time": trade_end_time,
-                "check_fractal": check_fractal,
+                "check_entry_fractal": check_entry_fractal,
+                "check_exit_fractal": check_exit_fractal,
                 "check_bb_band": check_bb_band,
                 "check_trail_bb_band": check_trail_bb_band,
-                "trail_bb_band_direction": trail_bb_band_direction,
                 "trade_type": trade_type,
                 "allowed_direction": allowed_direction,
             }
-            validated_input = validate_input(**input_data)
+            if check_entry_fractal:
+                input_data["entry_fractal_file_number"] = entry_fractal_file_number
 
-            start = time.time()
+            if check_exit_fractal:
+                input_data["exit_fractal_file_number"] = exit_fractal_file_number
+                input_data["fractal_exit_count"] = fractal_exit_count
 
-            initialize(**validated_input)
+            if check_bb_band:
+                input_data["bb_file_number"] = bb_file_number
+                input_data["bb_band_sd"] = bb_band_sd
+                input_data["bb_band_column"] = bb_band_column
 
-            process_trade(
-                validated_input.get("start_date"),
-                validated_input.get("end_date"),
-                validated_input.get("entry_fractal_file_number"),
-                validated_input.get("exit_fractal_file_number"),
-                validated_input.get("bb_file_number"),
-                validated_input.get("trail_bb_file_number"),
-            )
-            stop = time.time()
-            st.success(
-                f"Trade processing completed successfully! Total time taken: {stop-start} seconds"
-            )
+            if check_trail_bb_band:
+                input_data["trail_bb_file_number"] = trail_bb_file_number
+                input_data["trail_bb_band_sd"] = trail_bb_band_sd
+                input_data["trail_bb_band_column"] = trail_bb_band_column
+                input_data["trail_bb_band_direction"] = trail_bb_band_direction
+
+            if check_entry_based:
+                input_data["number_of_entries"] = number_of_entries
+                input_data["steps_to_skip"] = steps_to_skip
+
+            validated_input = validate(input_data)
+
+            if validated_input:
+                write_user_inputs(validated_input)
+
+                start = time.time()
+
+                initialize(validated_input)
+
+                process_trade(
+                    validated_input.get("start_date"),
+                    validated_input.get("end_date"),
+                    validated_input.get("entry_fractal_file_number"),
+                    validated_input.get("exit_fractal_file_number"),
+                    validated_input.get("bb_file_number"),
+                    validated_input.get("trail_bb_file_number"),
+                )
+                stop = time.time()
+                st.success(
+                    f"Trade processing completed successfully! Total time taken: {stop-start} seconds"
+                )
+
+
+def write_user_inputs(validated_input):
+    try:
+        with open("user_inputs.csv", "a", newline="") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=validated_input.keys())
+            if csvfile.tell() == 0:
+                writer.writeheader()
+            writer.writerow(validated_input)
+
+        st.success("User inputs written to user_inputs.csv successfully!")
+
+    except Exception as e:
+        st.error(f"Error writing data to CSV: {e}")
 
 
 # Run the main function when the script is executed
